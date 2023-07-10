@@ -46,11 +46,9 @@ class Neo4jQuery:
                 data_in_date = record['connection.dataIn'].strftime('%Y/%m/%d %H:%M:%S')
                 data_out_date = record['connection.dataOut'].strftime('%Y/%m/%d %H:%M:%S')
 
-                # Access properties of 'sim' and 'tower' nodes
                 sim_details = dict(sim_node.items())
                 tower_details = dict(tower_node.items())
 
-                # Create a result dict
                 single_result = {
                     'sim': sim_details,
                     'tower': tower_details,
@@ -58,13 +56,35 @@ class Neo4jQuery:
                     'data_out': data_out_date,
                 }
 
-                # Append it to the results list
                 results.append(single_result)
 
             return results
 
-    def search_by_date_tower(self):
-        ...
+    def search_by_date_tower(self, cell_number: int, search_date: str) -> list:
+        results = []
+        with self._driver.session() as session:
+            records = session.run(
+                'MATCH (person:Person)<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower {cellNumber: $cellNumber}) \
+                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: 10}) \
+                RETURN sim, person',
+                cellNumber=cell_number, searchDate=search_date
+            )
+
+            for record in records:
+                sim_node = record['sim']
+                person_node = record['person']
+
+                sim_details = dict(sim_node.items())
+                person_details = dict(person_node.items())
+
+                single_result = {
+                    'sim': sim_details,
+                    'person': person_details,
+                }
+
+                results.append(single_result)
+
+            return results
 
     def search_by_date_location(self):
         ...
