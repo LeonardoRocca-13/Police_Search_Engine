@@ -86,5 +86,31 @@ class Neo4jQuery:
 
             return results
 
-    def search_by_date_location(self):
-        ...
+    def search_by_date_location(self, search_date: str, max_distance: int, coordinates: tuple) -> list:
+        long, lat = coordinates
+
+        results = []
+        with self._driver.session() as session:
+            records = session.run(
+                'MATCH (person:Person)<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower) \
+                WITH sim, person, tower, point.distance(point({ longitude: $long, latitude: $lat, range: $range }), point(tower)) AS dist \
+                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: 10}) \
+                RETURN sim, person',
+                range=max_distance, lat=lat, long=long,  searchDate=search_date
+            )
+
+            for record in records:
+                sim_node = record['sim']
+                person_node = record['person']
+
+                sim_details = dict(sim_node.items())
+                person_details = dict(person_node.items())
+
+                single_result = {
+                    'sim': sim_details,
+                    'person': person_details,
+                }
+
+                results.append(single_result)
+
+            return results
