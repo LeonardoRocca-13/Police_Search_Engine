@@ -30,8 +30,38 @@ class Neo4jQuery:
         with self._driver.session() as session:
             return session.run('MATCH (n) DETACH DELETE n')
 
-    def search_by_date_person(self):
-        ...
+    def search_by_date_person(self, person_name: str, start_date: str, end_date: str) -> list:
+        results = []
+        with self._driver.session() as session:
+            records = session.run(
+                'MATCH (person:Person {name: $personName})<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower) \
+                WHERE datetime($startDate) <= connection.dataIn <= datetime($endDate) \
+                RETURN sim, tower, connection.dataIn, connection.dataOut',
+                personName=person_name, startDate=start_date, endDate=end_date
+            )
+
+            for record in records:
+                sim_node = record['sim']
+                tower_node = record['tower']
+                data_in_date = record['connection.dataIn'].strftime('%Y/%m/%d %H:%M:%S')
+                data_out_date = record['connection.dataOut'].strftime('%Y/%m/%d %H:%M:%S')
+
+                # Access properties of 'sim' and 'tower' nodes
+                sim_details = dict(sim_node.items())
+                tower_details = dict(tower_node.items())
+
+                # Create a result dict
+                single_result = {
+                    'sim': sim_details,
+                    'tower': tower_details,
+                    'data_in': data_in_date,
+                    'data_out': data_out_date,
+                }
+
+                # Append it to the results list
+                results.append(single_result)
+
+            return results
 
     def search_by_date_tower(self):
         ...
