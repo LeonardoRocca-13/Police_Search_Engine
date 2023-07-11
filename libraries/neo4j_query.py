@@ -1,3 +1,5 @@
+import datetime
+
 from neo4j import GraphDatabase
 import neo4j.exceptions
 
@@ -30,14 +32,14 @@ class Neo4jQuery:
         with self._driver.session() as session:
             return session.run('MATCH (n) DETACH DELETE n')
 
-    def search_by_date_person(self, person_name: str, start_date: str, end_date: str) -> list:
+    def search_by_date_person(self, person_name: str, start_datetime: datetime.datetime, end_datetime: datetime.datetime) -> list:
         results = []
         with self._driver.session() as session:
             records = session.run(
                 'MATCH (person:Person {name: $personName})<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower) \
                 WHERE datetime($startDate) <= connection.dataIn <= datetime($endDate) \
                 RETURN sim, tower, connection.dataIn, connection.dataOut',
-                personName=person_name, startDate=start_date, endDate=end_date
+                personName=person_name, startDate=start_datetime, endDate=end_datetime
             )
 
             for record in records:
@@ -60,14 +62,14 @@ class Neo4jQuery:
 
             return results
 
-    def search_by_date_tower(self, cell_number: int, search_date: str) -> list:
+    def search_by_date_tower(self, cell_number: int, search_date: datetime.datetime, precision: int = 10) -> list:
         results = []
         with self._driver.session() as session:
             records = session.run(
                 'MATCH (person:Person)<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower {cellNumber: $cellNumber}) \
-                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: 10}) \
+                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: $precision}) \
                 RETURN sim, person',
-                cellNumber=cell_number, searchDate=search_date
+                cellNumber=cell_number, searchDate=search_date, precision=precision
             )
 
             for record in records:
@@ -86,7 +88,7 @@ class Neo4jQuery:
 
             return results
 
-    def search_by_date_location(self, search_date: str, max_distance: int, coordinates: tuple) -> list:
+    def search_by_date_location(self, search_date: datetime.datetime, max_distance: int, coordinates: tuple, precision: int = 10) -> list:
         long, lat = coordinates
 
         results = []
@@ -94,9 +96,9 @@ class Neo4jQuery:
             records = session.run(
                 'MATCH (person:Person)<-[:OWNED_BY]-(sim:Sim)-[connection:CONNECTION]->(tower:CellTower) \
                 WITH sim, person, tower, point.distance(point({ longitude: $long, latitude: $lat, range: $range }), point(tower)) AS dist \
-                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: 10}) \
+                WHERE datetime($searchDate) <= connection.dataIn <= datetime($searchDate) + duration({minutes: $precision}) \
                 RETURN sim, person',
-                range=max_distance, lat=lat, long=long,  searchDate=search_date
+                range=max_distance, lat=lat, long=long,  searchDate=search_date, precision=precision
             )
 
             for record in records:
